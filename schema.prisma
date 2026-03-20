@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  role          Role
+  firstName     String
+  lastName      String
+  phone         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  patientProfile Patient?
+  doctorProfile  Doctor?
+  notifications  Notification[]
+}
+
+model Patient {
+  id              String        @id @default(uuid())
+  userId          String        @unique
+  user            User          @relation(fields: [userId], references: [id])
+  dateOfBirth     DateTime
+  medicalHistory  String?
+  appointments    Appointment[]
+  medicalRecords  MedicalRecord[]
+  prescriptions   Prescription[]
+}
+
+model Doctor {
+  id             String         @id @default(uuid())
+  userId         String         @unique
+  user           User           @relation(fields: [userId], references: [id])
+  specialization String
+  availability   Availability[]
+  appointments   Appointment[]
+  medicalRecords MedicalRecord[]
+  prescriptions  Prescription[]
+}
+
+model Availability {
+  id          String   @id @default(uuid())
+  doctorId    String
+  doctor      Doctor   @relation(fields: [doctorId], references: [id])
+  dayOfWeek   Int      // 0-6 (Sunday-Saturday)
+  startTime   String   // "09:00"
+  endTime     String   // "17:00"
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model Appointment {
+  id          String             @id @default(uuid())
+  patientId   String
+  patient     Patient            @relation(fields: [patientId], references: [id])
+  doctorId    String
+  doctor      Doctor             @relation(fields: [doctorId], references: [id])
+  dateTime    DateTime
+  status      AppointmentStatus  @default(SCHEDULED)
+  notes       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model MedicalRecord {
+  id          String   @id @default(uuid())
+  patientId   String
+  doctorId    String
+  diagnosis   String
+  treatment   String
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  doctor      Doctor   @relation(fields: [doctorId], references: [id])
+
+  @@index([patientId])
+  @@index([doctorId])
+}
+
+model Prescription {
+  id            String   @id @default(uuid())
+  patientId     String
+  doctorId      String
+  medication    String
+  dosage        String
+  instructions  String?
+  duration      String
+  status        String   @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  patient       Patient  @relation(fields: [patientId], references: [id])
+  doctor        Doctor   @relation(fields: [doctorId], references: [id])
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([status])
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String
+  type        String   // e.g. APPOINTMENT, MEDICAL_RECORD, SYSTEM
+  message     String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isRead])
+}
